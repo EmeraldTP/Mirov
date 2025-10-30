@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LZW Encoder/Decoder</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
+        h1, h2 { color: #343a40; }
+        .container { display: flex; gap: 2em; }
+        .section { flex: 1; }
+        #payload, #codewords { padding: 0.5em; font-size: 1em; width: 80%; box-sizing: border-box; }
+        button { padding: 0.5em 1em; font-size: 1em; cursor: pointer; margin-top: 0.5em; }
+        .table-wrapper { overflow-x: auto; margin-top: 1em; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #dee2e6; padding: 0.75em; text-align: left; }
+        th { background-color: #e9ecef; }
+        #decoded-string { margin-top: 1em; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            #payload, #codewords {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>LZW Encoder/Decoder</h1>
+    <div class="container">
+        <div class="section">
+            <h2>Encoder</h2>
+            <input type="text" id="payload" placeholder="Enter payload string..." value="LZ77LZ77.">
+            <button onclick="encode()">Encode</button>
+            <div id="encoder-table-container" class="table-wrapper"></div>
+        </div>
+        <div class="section">
+            <h2>Decoder</h2>
+            <input type="text" id="codewords" placeholder="Enter codewords...">
+            <input type="text" id="codewords" placeholder="Enter codewords...">
+            <input type="hidden" id="initial-dictionary">
+            <button onclick="decode()">Decode</button>
+            <div id="decoder-table-container" class="table-wrapper"></div>
+            <div id="decoded-string"></div>
+        </div>
+    </div>
+
+    <script>
+        function encode() {
+            const payload = document.getElementById('payload').value;
+            let dictionary = {};
+            let dictSize = 0;
+
+            for (let i = 0; i < payload.length; i++) {
+                const char = payload[i];
+                if (!dictionary.hasOwnProperty(char)) {
+                    dictionary[char] = dictSize++;
+                }
+            }
+            document.getElementById('initial-dictionary').value = JSON.stringify(dictionary);
+
+            let tableHtml = '<table><tr><th>Grupul de intrare</th><th>Prezența în dicționar</th><th>Dicționarul</th><th>Identificatorul (nr. de ordine în dicționar)</th><th>Codul de la ieșire</th></tr>';
+
+            Object.keys(dictionary).sort((a, b) => dictionary[a] - dictionary[b]).forEach(key => {
+                 tableHtml += `<tr><td></td><td></td><td>${key}</td><td>${dictionary[key]}</td><td></td></tr>`;
+            });
+
+            let w = '';
+            let result = [];
+
+            for (let i = 0; i < payload.length; i++) {
+                let c = payload[i];
+                let wc = w + c;
+                
+                if (dictionary.hasOwnProperty(wc)) {
+                    if (w !== '') tableHtml += `<tr><td>${w}</td><td>da</td><td></td><td></td><td></td></tr>`;
+                    w = wc;
+                } else {
+                    let outputCode = -1;
+                    if (w !== '') {
+                        outputCode = dictionary[w];
+                        tableHtml += `<tr><td>${w}</td><td>da</td><td></td><td></td><td>${outputCode}(${w})</td></tr>`;
+                    } else { // First char
+                        result.push(dictionary[c]);
+                        tableHtml += `<tr><td>${c}</td><td>da</td><td></td><td></td><td>${dictionary[c]}(${c})</td></tr>`;
+                        w = c;
+                        continue;
+                    }
+                    result.push(outputCode);
+                    
+                    tableHtml += `<tr><td>${wc}</td><td>nu</td><td>${wc}</td><td>${dictSize}</td><td></td></tr>`;
+                    dictionary[wc] = dictSize++;
+                    w = c;
+                }
+            }
+
+            if (w !== '') {
+                let outputCode = dictionary[w];
+                result.push(outputCode);
+                tableHtml += `<tr><td>${w}</td><td>da</td><td></td><td></td><td>${outputCode}(${w})</td></tr>`;
+            }
+
+            tableHtml += '</table>';
+            document.getElementById('encoder-table-container').innerHTML = tableHtml;
+            document.getElementById('codewords').value = result.filter(c => c !== -1).join(',');
+        }
+
+        function decode(){
+            const codewordsInput = document.getElementById('codewords').value;
+            if (!codewordsInput) return;
+            const codes = codewordsInput.split(',').map(Number);
+            const initialDictJSON = document.getElementById('initial-dictionary').value;
+            if (!initialDictJSON) return;
+            const initialDict = JSON.parse(initialDictJSON);
+
+            let dictionary = {};
+            let dictSize = 0;
+
+            Object.keys(initialDict).forEach(key => {
+                dictionary[initialDict[key]] = key;
+                dictSize++;
+            });
+
+            let tableHtml = '<table><tr><th>Codul de intrare</th><th>Dicționarul</th><th>Identificatorul (nr. de ordine în dicționar)</th><th>Simbolul de la ieșire</th></tr>';
+
+            Object.keys(dictionary).sort((a, b) => a - b).forEach(key => {
+                 tableHtml += `<tr><td></td><td>${dictionary[key]}</td><td>${key}</td><td></td></tr>`;
+            });
+
+            let w = dictionary[codes.shift()];
+            let result = w;
+            tableHtml += `<tr><td>${initialDict[w]}</td><td></td><td></td><td>${w}</td></tr>`;
+
+            for (const k of codes) {
+                let entry = '';
+                if (dictionary[k]) {
+                    entry = dictionary[k];
+                } else if (k === dictSize) {
+                    entry = w + w[0];
+                } else {
+                    entry = '?'; // Should not happen
+                }
+
+                result += entry;
+                let newDictEntry = w + entry[0];
+                dictionary[dictSize] = newDictEntry;
+                tableHtml += `<tr><td>${k}</td><td>${newDictEntry}</td><td>${dictSize}</td><td>${entry}</td></tr>`;
+                dictSize++;
+                w = entry;
+            }
+
+            tableHtml += '</table>';
+            document.getElementById('decoder-table-container').innerHTML = tableHtml;
+            document.getElementById('decoded-string').innerHTML = `<strong>Decoded String:</strong> ${result}`;
+        }
+
+        window.onload = () => {
+            encode();
+            decode();
+        };
+    </script>

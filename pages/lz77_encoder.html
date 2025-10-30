@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LZ77 Encoder/Decoder</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
+        h1, h2 { color: #343a40; }
+        .container { display: flex; gap: 2em; }
+        .section { flex: 1; }
+        .input-group { margin-bottom: 1em; }
+        .input-group label { margin-right: 0.5em; }
+        #payload, #encoded-triplets { padding: 0.5em; font-size: 1em; width: 80%; box-sizing: border-box; }
+        #search-buffer-size, #lookahead-buffer-size { padding: 0.5em; font-size: 1em; width: 50px; }
+        button { padding: 0.5em 1em; font-size: 1em; cursor: pointer; margin-top: 0.5em; }
+        .table-wrapper { overflow-x: auto; margin-top: 1em; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #dee2e6; padding: 0.75em; text-align: center; }
+        th { background-color: #e9ecef; }
+        #decoded-string { margin-top: 1em; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            #payload, #encoded-triplets {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>LZ77 Encoder/Decoder</h1>
+    <div class="container">
+        <div class="section">
+            <h2>Encoder</h2>
+            <div class="input-group">
+                <label for="payload">Payload:</label>
+                <input type="text" id="payload" value="LZ77LZ77.">
+            </div>
+            <div class="input-group">
+                <label for="search-buffer-size">Search Buffer Size:</label>
+                <input type="number" id="search-buffer-size" value="8">
+            </div>
+            <div class="input-group">
+                <label for="lookahead-buffer-size">Lookahead Buffer Size:</label>
+                <input type="number" id="lookahead-buffer-size" value="4">
+            </div>
+            <button onclick="encode()">Encode</button>
+            <div id="encoder-table-container" class="table-wrapper"></div>
+        </div>
+        <div class="section">
+            <h2>Decoder</h2>
+            <div class="input-group">
+                <label for="encoded-triplets">Encoded Triplets:</label>
+                <input type="text" id="encoded-triplets" placeholder="Enter (p,l,S) triplets...">
+            </div>
+            <button onclick="decode()">Decode</button>
+            <div id="decoder-table-container" class="table-wrapper"></div>
+            <div id="decoded-string"></div>
+        </div>
+    </div>
+
+    <script>
+        function encode() {
+            const payload = document.getElementById('payload').value;
+            const searchBufferSize = parseInt(document.getElementById('search-buffer-size').value);
+            const lookaheadBufferSize = parseInt(document.getElementById('lookahead-buffer-size').value);
+
+            let tableHtml = `<table>
+                <tr>
+                    <th rowspan="2">Nr. pas</th>
+                    <th colspan="${searchBufferSize}">Cache-ul de căutare (dicționarul)</th>
+                    <th colspan="${lookaheadBufferSize}">Cache-ul de previzual.</th>
+                    <th colspan="3">Ieșire codor</th>
+                </tr>
+                <tr>`;
+            for(let i = searchBufferSize; i > 0; i--) tableHtml += `<td>${i}</td>`;
+            for(let i = 1; i <= lookaheadBufferSize; i++) tableHtml += `<td>${i}</td>`;
+            tableHtml += `<td>p</td><td>l</td><td>S</td></tr>`;
+
+            let buffer = ' '.repeat(searchBufferSize);
+            let i = 0;
+            let step = 1;
+            let encodedTriplets = [];
+
+            while (i < payload.length) {
+                const lookahead = payload.substring(i, i + lookaheadBufferSize);
+                let bestMatch = { pos: 0, len: 0 };
+
+                for (let j = 1; j <= searchBufferSize; j++) {
+                    const start = buffer.length - j;
+                    if (start < 0) continue;
+
+                    for (let len = 1; len <= lookahead.length; len++) {
+                        if (buffer.substring(start, start + len) === lookahead.substring(0, len)) {
+                            if (len > bestMatch.len) {
+                                bestMatch = { pos: j, len: len };
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                const nextChar = payload[i + bestMatch.len] || '';
+                encodedTriplets.push(`(${bestMatch.pos},${bestMatch.len},${nextChar})`);
+                
+                tableHtml += `<tr><td>${step++}</td>`;
+                // Search buffer
+                for(let k = 0; k < searchBufferSize; k++){
+                    tableHtml += `<td>${buffer[k] || '-'}</td>`;
+                }
+                // Lookahead buffer
+                for(let k = 0; k < lookaheadBufferSize; k++){
+                    tableHtml += `<td>${payload[i+k] || '-'}</td>`;
+                }
+                // Output
+                tableHtml += `<td>${bestMatch.pos}</td><td>${bestMatch.len}</td><td>${nextChar}</td></tr>`;
+
+                buffer += payload.substring(i, i + bestMatch.len + 1);
+                buffer = buffer.slice(-searchBufferSize);
+                i += bestMatch.len + 1;
+            }
+
+            tableHtml += '<tr><td>Total</td>';
+            for(let k = 0; k < searchBufferSize; k++){
+                tableHtml += `<td>${buffer[k] || '-'}</td>`;
+            }
+            tableHtml += `<td colspan="${lookaheadBufferSize + 3}"></td></tr>`;
+
+            tableHtml += '</table>';
+            document.getElementById('encoder-table-container').innerHTML = tableHtml;
+            document.getElementById('encoded-triplets').value = encodedTriplets.join(',');
+        }
+
+        function decode() {
+            const encodedTripletsInput = document.getElementById('encoded-triplets').value;
+            if (!encodedTripletsInput) return;
+            const searchBufferSize = parseInt(document.getElementById('search-buffer-size').value);
+
+            const triplets = encodedTripletsInput.match(/\(\d+,\d+,.*?\)/g);
+            if (!triplets) {
+                document.getElementById('decoder-table-container').innerHTML = '<p>Invalid triplet format.</p>';
+                return;
+            }
+
+            let tableHtml = `<table>
+                <tr>
+                    <th rowspan="2">Nr. pas</th>
+                    <th colspan="3">Intrare decodor</th>
+                    <th colspan="${searchBufferSize}">Cache-ul de căutare (dicționarul)</th>
+                    <th rowspan="2">Ieșire decodor</th>
+                </tr>
+                <tr>
+                    <td>p</td><td>l</td><td>S</td>`;
+            for(let i = searchBufferSize; i > 0; i--) tableHtml += `<td>${i}</td>`;
+            tableHtml += `</tr>`;
+
+            let decodedString = '';
+            let buffer = ' '.repeat(searchBufferSize);
+            let step = 1;
+
+            for (const tripletStr of triplets) {
+                const parts = tripletStr.replace(/[()]/g, '').split(',');
+                const pos = parseInt(parts[0]);
+                const len = parseInt(parts[1]);
+                const char = parts[2];
+
+                let output = '';
+                if (pos === 0 && len === 0) {
+                    output = char;
+                } else {
+                    const startIndex = buffer.length - pos;
+                    output = buffer.substring(startIndex, startIndex + len) + char;
+                }
+                decodedString += output;
+
+                tableHtml += `<tr><td>${step++}</td><td>${pos}</td><td>${len}</td><td>${char}</td>`;
+                // Search buffer
+                for(let k = 0; k < searchBufferSize; k++){
+                    tableHtml += `<td>${buffer[k] || '-'}</td>`;
+                }
+                tableHtml += `<td>${output}</td></tr>`;
+
+                buffer += output;
+                buffer = buffer.slice(-searchBufferSize);
+            }
+
+            tableHtml += '<tr><td>Total</td><td colspan="3"></td>';
+            for(let k = 0; k < searchBufferSize; k++){
+                tableHtml += `<td>${buffer[k] || '-'}</td>`;
+            }
+            tableHtml += `<td>${decodedString}</td></tr>`;
+
+            tableHtml += '</table>';
+            document.getElementById('decoder-table-container').innerHTML = tableHtml;
+            document.getElementById('decoded-string').innerHTML = `<strong>Decoded String:</strong> ${decodedString}`;
+        }
+
+        window.onload = () => {
+            encode();
+            decode();
+        };
+    </script>
+</body>
+</html>

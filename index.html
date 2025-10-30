@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Page Aggregator (Fallback)</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
+        h1 { color: #343a40; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 1em 0; }
+        a { 
+            text-decoration: none;
+            color: #007bff;
+            font-size: 1.2em;
+            padding: 0.5em 1em;
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            transition: all 0.2s ease-in-out;
+        }
+        a:hover {
+            background-color: #007bff;
+            color: white;
+        }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 1em; margin-top: 1em; }
+    </style>
+</head>
+<body>
+    <h1>HTML Files in 'pages' directory (Fallback)</h1>
+    <div class="warning">
+        <p><strong>Note:</strong> You are viewing this page directly from your file system (<code>file://</code> protocol).</p>
+        <p>Due to browser security restrictions (Same-Origin Policy), this page cannot dynamically list files from the 'pages' directory.</p>
+        <p>Below is a hardcoded list of available algorithm pages. For dynamic listing, please access the application via the FastAPI server (e.g., <code>http://127.0.0.1:8000/</code>).</p>
+    </div>
+    <ul>
+        <li><a href="pages/lz78_encoder.html">lz78_encoder.html</a></li>
+        <li><a href="pages/lzw_encoder.html">lzw_encoder.html</a></li>
+        <li><a href="pages/lz77_encoder.html">lz77_encoder.html</a></li>
+    </ul>
+</body>
+</html>
