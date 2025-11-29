@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LZW</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
+        h1, h2, h3 { color: #343a40; }
+        .container { display: flex; flex-direction: column; gap: 2em; }
+        .section { background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 1em; display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
+        .input-group label { font-weight: bold; }
+        input[type="number"], input[type="text"] { padding: 0.5em; font-size: 1em; border: 1px solid #ced4da; border-radius: 4px; }
+        button { padding: 0.5em 1.5em; font-size: 1em; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.2s; }
+        button:hover { background-color: #0056b3; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+        th, td { border: 1px solid #dee2e6; padding: 0.75em; text-align: center; }
+        th { background-color: #e9ecef; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        
+        .result-summary { margin-top: 1em; font-weight: bold; }
+        .code-list { font-family: monospace; color: #d63384; }
+    </style>
+</head>
+<body>
+    <h1>LZW</h1>
+    
+    <div class="container">
+        <!-- Configuration -->
+        <div class="section">
+            <h2>Configuration</h2>
+            <div class="input-group">
+                <label for="inputText">Input Text:</label>
+                <input type="text" id="inputText" value="LZ77LZ77." size="30">
+                
+                <label for="dictSize">Dictionary Size Limit (W):</label>
+                <input type="number" id="dictSize" value="8" min="4" max="4096">
+                
+                <button onclick="runLZW()">Run LZW</button>
+            </div>
+        </div>
+
+        <!-- Encoder Output -->
+        <div class="section">
+            <h2>1. Encoder Output (Procedura de codare)</h2>
+            <div id="encoder-results"></div>
+        </div>
+
+        <!-- Decoder Output -->
+        <div class="section">
+            <h2>2. Decoder Output (Procedura de decodare)</h2>
+            <div id="decoder-results"></div>
+        </div>
+    </div>
+
+    <script>
+        function runLZW() {
+            const text = document.getElementById('inputText').value;
+            const W = parseInt(document.getElementById('dictSize').value);
+            
+            if (!text) { alert("Please enter text."); return; }
+
+            // 1. Initialize Alphabet
+            // Find unique characters to build initial dictionary
+            // In the PDF example: L, Z, 7, . -> 0, 1, 2, 3
+            // We will preserve order of appearance or sort?
+            // The example: "LZ77LZ77." -> L first, Z second, 7 third, . fourth.
+            // But usually standard is ASCII. However, to match the PDF example exactly,
+            // we should probably just map unique chars in order of appearance or explicit list.
+            // Let's use order of appearance for the "Initial Dictionary".
+            
+            let uniqueChars = [];
+            for (let char of text) {
+                if (!uniqueChars.includes(char)) {
+                    uniqueChars.push(char);
+                }
+            }
+            
+            // Build initial maps
+            let dictionary = {}; // string -> code
+            let decodingDict = {}; // code -> string
+            
+            let initTableHtml = '<h3>Initial Dictionary</h3><table><tr><th>Symbol</th><th>Code</th></tr>';
+            uniqueChars.forEach((char, index) => {
+                dictionary[char] = index;
+                decodingDict[index] = char;
+                initTableHtml += `<tr><td>${char}</td><td>${index}</td></tr>`;
+            });
+            initTableHtml += '</table>';
+            
+            let nextCode = uniqueChars.length;
+            
+            // --- ENCODING ---
+            let encoderRows = [];
+            let outputCodes = [];
+            let P = "";
+            
+            // Copy dict for encoding to avoid mutating the shared one if we need it pure later
+            let encDict = {...dictionary};
+            let encNextCode = nextCode;
+            let encFrozen = false;
+
+            // We need to simulate the "Step by Step" rows from PDF.
+            // The PDF shows rows for *every* check, even if "da" (found).
+            
+            for (let i = 0; i < text.length; i++) {
+                let C = text[i];
+                let PC = P + C;
+                
+                // Table Row Data
+                let row = {
+                    input: (P === "") ? C : PC, // Visual logic from PDF (sometimes shows single char, sometimes group)
+                    present: "",
+                    dictEntry: "",
+                    dictId: "",
+                    output: ""
+                };
+
+                // Actually, the PDF logic:
+                // 1. "La intrare se aplica... L" -> check L. Found? Yes.
+                // 2. "La intrare... Z" -> check LZ. Found? No. -> Add LZ(4). Output Code(L)=0. P=Z.
+                
+                // My logic loop needs to align.
+                // P is the current prefix match.
+                
+                if (P === "") {
+                    // First char of file (or after reset?)
+                    // Actually standard LZW starts with P = first char.
+                    // But the loop iterates all chars.
+                    // Let's handle P separate.
+                }
+            }
+            
+            // Let's restart logic to match PDF table strictly.
+            encoderRows = [];
+            outputCodes = [];
+            encDict = {...dictionary};
+            encNextCode = nextCode;
+            encFrozen = false;
+            
+            // We iterate through the text.
+            // The PDF table shows lines for:
+            // "L" -> da
+            // "LZ" -> nu -> add LZ -> out 0(L)
+            // "Z" -> da
+            // "Z7" -> nu -> add Z7 -> out 1(Z)
+            // ...
+            
+            P = "";
+            // To exactly match the table style:
+            // We process character C.
+            // We look at P + C.
+            
+            for (let i = 0; i < text.length; i++) {
+                let C = text[i];
+                
+                // If P is empty, we just set P=C. 
+                // But in the table, the first line is "L" -> "da".
+                if (P === "") {
+                   P = C;
+                   encoderRows.push({
+                       input: P,
+                       present: "da",
+                       dictEntry: "",
+                       dictId: "",
+                       output: ""
+                   });
+                   continue;
+                }
+                
+                let PC = P + C;
+                if (encDict.hasOwnProperty(PC)) {
+                    // Found P+C
+                    P = PC;
+                    encoderRows.push({
+                       input: P, // The PDF shows the accumulated group being checked
+                       present: "da",
+                       dictEntry: "",
+                       dictId: "",
+                       output: ""
+                   });
+                } else {
+                    // Not found
+                    let outputCode = encDict[P];
+                    outputCodes.push(outputCode);
+                    
+                    // Row for the "nu" case
+                    let row = {
+                        input: PC,
+                        present: "nu",
+                        dictEntry: "",
+                        dictId: "",
+                        output: `${outputCode} (${P})`
+                    };
+                    
+                    // Add to dict if space
+                    if (encNextCode < W) {
+                        encDict[PC] = encNextCode;
+                        row.dictEntry = PC;
+                        row.dictId = encNextCode;
+                        encNextCode++;
+                    } else {
+                        encFrozen = true;
+                        row.dictEntry = "-";
+                        row.dictId = "-";
+                    }
+                    encoderRows.push(row);
+                    
+                    // New P is C
+                    P = C;
+                    // We effectively "start" looking at C now. 
+                    // The PDF often shows a "da" line for C immediately after the "nu" line?
+                    // PDF pg 6: LZ nu ...; Z da ...
+                    encoderRows.push({
+                       input: P,
+                       present: "da",
+                       dictEntry: "",
+                       dictId: "",
+                       output: ""
+                   });
+                }
+            }
+            
+            // End of string
+            // Output code for P
+            if (P !== "") {
+                let code = encDict[P];
+                outputCodes.push(code);
+                 // The PDF example ends with: "77. nu ... 3(.)" -> wait, page 12
+                 // "77. nu" -> add -, output 6(77).
+                 // Then ". da" -> output 3(.)
+                 
+                 // My loop finished. The last P needs to be output.
+                 // The "nu" row happened for the last combination if applicable.
+                 // If the loop ends, we just output current P.
+                 // In the table context:
+                 // If we just did "77." -> nu (output 77), P becomes ".".
+                 // We need to record the output of "."
+                 
+                 // Looking at pg 12 step 16: ". da" (implied or explicit?)
+                 // It just says "reprezinta ultimul simbol... se transmite codul... 3".
+                 // In the table it shows ". da - - 3(.)".
+                 
+                 // So we add a final row.
+                 encoderRows.push({
+                     input: P, // or just "."?
+                     present: "da", // Technically it is in dict
+                     dictEntry: "-",
+                     dictId: "-",
+                     output: `${encDict[P]} (${P})`
+                 });
+            }
+            
+            // Render Encoder Table
+            let encTable = `<table>
+                <thead>
+                    <tr>
+                        <th>Grupul de intrare</th>
+                        <th>Prezenta în dicţionar</th>
+                        <th>Dicţionarul</th>
+                        <th>Identificatorul</th>
+                        <th>Codul de la ieşire</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            encoderRows.forEach(r => {
+               encTable += `<tr>
+                   <td>${r.input}</td>
+                   <td>${r.present}</td>
+                   <td>${r.dictEntry}</td>
+                   <td>${r.dictId}</td>
+                   <td>${r.output}</td>
+               </tr>`; 
+            });
+            encTable += `</tbody></table>`;
+            
+            let encSummary = `<div class="result-summary">
+                <p>Initial Dictionary size: ${uniqueChars.length}</p>
+                <p>Final Dictionary size: ${encNextCode}</p>
+                <p>Compressed Codes: <span class="code-list">[ ${outputCodes.join(', ')} ]</span></p>
+            </div>`;
+            
+            document.getElementById('encoder-results').innerHTML = initTableHtml + encTable + encSummary;
+
+
+            // --- DECODING ---
+            
+            // Reset dict for decoding
+            let decDict = {};
+            uniqueChars.forEach((char, index) => {
+                decDict[index] = char;
+            });
+            let decNextCode = uniqueChars.length;
+            let decFrozen = false;
+            
+            let decoderRows = [];
+            
+            // Logic from PDF page 14
+            // 1. Receive first code.
+            let oldCode = outputCodes[0];
+            let oldString = decDict[oldCode];
+            
+            // First row: simply outputting the first char
+            decoderRows.push({
+                input: oldCode,
+                dictEntry: "",
+                dictId: "",
+                output: oldString
+            });
+            
+            for (let i = 1; i < outputCodes.length; i++) {
+                let newCode = outputCodes[i];
+                let newString;
+                let entryToAdd = "";
+                
+                if (decDict.hasOwnProperty(newCode)) {
+                    newString = decDict[newCode];
+                    // Form new entry: oldString + first char of newString
+                    entryToAdd = oldString + newString.charAt(0);
+                } else {
+                    // Special case: KwKwK
+                    // newCode is not in dict yet. It must be oldString + oldString[0]
+                    newString = oldString + oldString.charAt(0);
+                    entryToAdd = newString;
+                }
+                
+                // Add to dictionary if space
+                let addedId = "";
+                let addedEntry = "";
+                
+                if (decNextCode < W) {
+                    decDict[decNextCode] = entryToAdd;
+                    addedId = decNextCode;
+                    addedEntry = entryToAdd;
+                    decNextCode++;
+                } else {
+                    addedId = "-";
+                    addedEntry = entryToAdd + " (ignored)";
+                    // Or just blank/dash as in PDF
+                    addedEntry = "-";
+                }
+                
+                decoderRows.push({
+                    input: newCode,
+                    dictEntry: (addedEntry === "-") ? "-" : entryToAdd,
+                    dictId: addedId,
+                    output: newString
+                });
+                
+                oldCode = newCode;
+                oldString = newString;
+            }
+            
+            // Render Decoder Table
+            let decTable = `<table>
+                <thead>
+                    <tr>
+                        <th>Codul de intrare</th>
+                        <th>Dicţionarul (New Entry)</th>
+                        <th>Identificatorul</th>
+                        <th>Simbolul de la ieşire</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            decoderRows.forEach(r => {
+               decTable += `<tr>
+                   <td>${r.input}</td>
+                   <td>${r.dictEntry}</td>
+                   <td>${r.dictId}</td>
+                   <td>${r.output}</td>
+               </tr>`; 
+            });
+            decTable += `</tbody></table>`;
+            
+            // Reconstructed String
+            let reconstructed = decoderRows.map(r => r.output).join('');
+            let decSummary = `<div class="result-summary">
+                <p>Reconstructed String: ${reconstructed}</p>
+                <p class="${reconstructed === text ? 'success' : 'error'}">
+                    Match Original: ${reconstructed === text ? 'YES' : 'NO'}
+                </p>
+            </div>`;
+            
+            document.getElementById('decoder-results').innerHTML = decTable + decSummary;
+        }
+        
+        // Run initially
+        window.onload = runLZW;
+    </script>
+</body>
+</html>
