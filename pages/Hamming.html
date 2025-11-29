@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hamming</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; }
+        h1, h2, h3, h4 { color: #343a40; }
+        .container { display: flex; flex-direction: column; gap: 2em; }
+        .section { background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 1em; display: flex; align-items: center; gap: 1em; }
+        .input-group label { font-weight: bold; }
+        input[type="number"], input[type="text"] { padding: 0.5em; font-size: 1em; border: 1px solid #ced4da; border-radius: 4px; }
+        input[type="number"] { width: 60px; }
+        button { padding: 0.5em 1.5em; font-size: 1em; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.2s; }
+        button:hover { background-color: #0056b3; }
+        
+        .matrix-display { font-family: monospace; margin-top: 1em; overflow-x: auto; }
+        .matrix-row { display: flex; gap: 5px; margin-bottom: 5px; }
+        .matrix-input { width: 40px; text-align: center; }
+        
+        .result-box { margin-top: 1em; padding: 1em; background-color: #e9ecef; border-radius: 4px; }
+        .error { color: #dc3545; font-weight: bold; }
+        .success { color: #28a745; font-weight: bold; }
+        
+        /* New styles for steps */
+        .steps-box { background-color: #fff; border-left: 4px solid #17a2b8; padding: 10px 15px; margin: 10px 0; }
+        .steps-box p { margin: 5px 0; }
+        .matrix-table { border-collapse: collapse; margin: 5px 0; display: inline-block; vertical-align: top; }
+        .matrix-table td { border: 1px solid #ccc; padding: 5px 10px; text-align: center; font-family: monospace; }
+        .calc-line { font-family: monospace; margin-bottom: 4px; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Hamming</h1>
+    
+    <div class="container">
+        <!-- Configuration Section -->
+        <div class="section">
+            <h2>1. Configuration</h2>
+            <div class="input-group">
+                <label for="n-input">Codeword Length (n):</label>
+                <input type="number" id="n-input" value="7" min="1">
+                
+                <label for="k-input">Message Length (k):</label>
+                <input type="number" id="k-input" value="4" min="1">
+                
+                <button onclick="setupMatrices()">Set Dimensions</button>
+            </div>
+        </div>
+
+        <!-- H Matrix Section -->
+        <div class="section">
+            <h2>2. Verification Matrix (H)</h2>
+            <p>Enter the Parity Check Matrix H (dimensions: <span id="h-dims">3 x 7</span>). Default is Hamming (7,4).</p>
+            <div id="h-matrix-container"></div>
+            <br>
+            <button onclick="calculateG()">a) Calculate Generator Matrix G</button>
+            <div id="g-result" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- Encoding Section -->
+        <div class="section">
+            <h2>3. Encoding</h2>
+            <div class="input-group">
+                <label for="message-input">Message Sequence (m):</label>
+                <input type="text" id="message-input" value="1000" placeholder="Binary sequence">
+            </div>
+            <button onclick="calculateU()">b) Calculate Code Combination U</button>
+            <div id="u-result" class="result-box" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let G_matrix = [];
+        let n_val = 7;
+        let k_val = 4;
+
+        // Default H for Hamming (7,4) from the PDF example
+        const H_default_7_4 = [
+            [1, 0, 1, 1, 1, 0, 0],
+            [1, 1, 1, 0, 0, 1, 0],
+            [0, 1, 1, 1, 0, 0, 1]
+        ];
+
+        function setupMatrices() {
+            n_val = parseInt(document.getElementById('n-input').value);
+            k_val = parseInt(document.getElementById('k-input').value);
+            const rows = n_val - k_val;
+            const cols = n_val;
+
+            document.getElementById('h-dims').innerText = `${rows} x ${cols}`;
+            
+            const container = document.getElementById('h-matrix-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < rows; i++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'matrix-row';
+                for (let j = 0; j < cols; j++) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'matrix-input';
+                    input.id = `h-${i}-${j}`;
+                    input.maxLength = 1;
+                    
+                    if (n_val === 7 && k_val === 4 && H_default_7_4[i] && H_default_7_4[i][j] !== undefined) {
+                        input.value = H_default_7_4[i][j];
+                    } else {
+                        input.value = '0';
+                    }
+                    input.onfocus = function() { this.select(); };
+                    rowDiv.appendChild(input);
+                }
+                container.appendChild(rowDiv);
+            }
+            
+            document.getElementById('g-result').style.display = 'none';
+            document.getElementById('u-result').style.display = 'none';
+            G_matrix = [];
+        }
+
+        function readH() {
+            const rows = n_val - k_val;
+            const cols = n_val;
+            let H = [];
+            for (let i = 0; i < rows; i++) {
+                let row = [];
+                for (let j = 0; j < cols; j++) {
+                    const val = document.getElementById(`h-${i}-${j}`).value;
+                    if (val !== '0' && val !== '1') {
+                        alert(`Invalid value at H[${i}][${j}]. Must be 0 or 1.`);
+                        return null;
+                    }
+                    row.push(parseInt(val));
+                }
+                H.push(row);
+            }
+            return H;
+        }
+
+        function isIdentity(matrix, startRow, startCol, size) {
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const expected = (i === j) ? 1 : 0;
+                    if (matrix[startRow + i][startCol + j] !== expected) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function transpose(matrix) {
+            return matrix[0].map((col, i) => matrix.map(row => row[i]));
+        }
+
+        function createIdentity(size) {
+            let I = [];
+            for(let i=0; i<size; i++){
+                let row = Array(size).fill(0);
+                row[i] = 1;
+                I.push(row);
+            }
+            return I;
+        }
+
+        function concatMatricesH(A, B) {
+            return A.map((row, i) => row.concat(B[i]));
+        }
+
+        function matrixToHtmlTable(matrix) {
+            let html = '<table class="matrix-table">';
+            matrix.forEach(row => {
+                html += '<tr>';
+                row.forEach(val => {
+                    html += `<td>${val}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            return html;
+        }
+
+        function calculateG() {
+            const H = readH();
+            if (!H) return;
+
+            const rowsH = n_val - k_val;
+            const identityAtEnd = isIdentity(H, 0, k_val, rowsH);
+            const identityAtStart = isIdentity(H, 0, 0, rowsH);
+
+            const resultDiv = document.getElementById('g-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '';
+            
+            let stepsHtml = '<div class="steps-box"><h4>Step-by-Step Derivation:</h4>';
+
+            if (identityAtEnd) {
+                // H = [P^T | I]
+                stepsHtml += `<p>1. Matrix H is identified in standard form <b>H = [ P<sup>T</sup> | I<sub>${rowsH}</sub> ]</b>.</p>`;
+                
+                let PT = [];
+                for (let i = 0; i < rowsH; i++) {
+                    PT.push(H[i].slice(0, k_val));
+                }
+                
+                stepsHtml += `<p>2. Extract submatrix <b>P<sup>T</sup></b> (the first ${k_val} columns):</p>` + matrixToHtmlTable(PT);
+
+                let P = transpose(PT);
+                stepsHtml += `<p>3. Transpose <b>P<sup>T</sup></b> to obtain <b>P</b>:</p>` + matrixToHtmlTable(P);
+                
+                let Ik = createIdentity(k_val);
+                G_matrix = concatMatricesH(Ik, P);
+                
+                stepsHtml += `<p>4. Construct <b>G</b> by concatenating Identity matrix I<sub>${k_val}</sub> and P: <b>G = [ I<sub>${k_val}</sub> | P ]</b>.</p>`;
+
+            } else if (identityAtStart) {
+                // H = [I | P^T]
+                stepsHtml += `<p>1. Matrix H is identified in standard form <b>H = [ I<sub>${rowsH}</sub> | P<sup>T</sup> ]</b>.</p>`;
+
+                let PT = [];
+                for (let i = 0; i < rowsH; i++) {
+                    PT.push(H[i].slice(rowsH, n_val));
+                }
+                
+                stepsHtml += `<p>2. Extract submatrix <b>P<sup>T</sup></b> (the last ${k_val} columns):</p>` + matrixToHtmlTable(PT);
+
+                let P = transpose(PT);
+                stepsHtml += `<p>3. Transpose <b>P<sup>T</sup></b> to obtain <b>P</b>:</p>` + matrixToHtmlTable(P);
+
+                let Ik = createIdentity(k_val);
+                G_matrix = concatMatricesH(P, Ik);
+                
+                stepsHtml += `<p>4. Construct <b>G</b> by concatenating P and Identity matrix I<sub>${k_val}</sub>: <b>G = [ P | I<sub>${k_val}</sub> ]</b>.</p>`;
+
+            } else {
+                resultDiv.innerHTML = `<p class="error">Matrix H is not in a detected systematic form [P<sup>T</sup> | I] or [I | P<sup>T</sup>]. Calculation requires Gaussian elimination which is not implemented in this step-by-step demo.</p>`;
+                G_matrix = [];
+                return;
+            }
+            
+            stepsHtml += '</div>';
+            resultDiv.innerHTML += stepsHtml;
+            
+            // Final G display
+            resultDiv.innerHTML += `<h3>Final Generator Matrix G (${k_val} x ${n_val})</h3>` + matrixToHtmlTable(G_matrix);
+        }
+
+        function calculateU() {
+            calculateG(); // Ensure G is up to date with current inputs
+            
+            if (G_matrix.length === 0) {
+                // Error handled in calculateG
+                return;
+            }
+
+            const msgStr = document.getElementById('message-input').value.trim();
+            if (msgStr.length !== k_val || !/^[01]+$/.test(msgStr)) {
+                alert(`Message must be exactly ${k_val} bits (0 or 1).`);
+                return;
+            }
+
+            const m = msgStr.split('').map(Number);
+            let U = Array(n_val).fill(0);
+            
+            let calcHtml = '<div class="steps-box"><h4>Calculation Details ( U = m &middot; G ):</h4>';
+            calcHtml += `<p>Calculating each bit <i>u<sub>j</sub></i> as the scalar product of message <b>m</b> and column <b>j</b> of <b>G</b> (modulo 2):</p>`;
+            
+            for (let j = 0; j < n_val; j++) {
+                let sum = 0;
+                let terms = [];
+                
+                for (let i = 0; i < k_val; i++) {
+                    const prod = m[i] * G_matrix[i][j];
+                    sum += prod;
+                    terms.push(`(${m[i]}&middot;${G_matrix[i][j]})`);
+                }
+                
+                U[j] = sum % 2;
+                
+                // Visual for the sum: (1.1) + (0.0) ...
+                calcHtml += `<div class="calc-line">u<sub>${j}</sub> = ${terms.join(' &oplus; ')} = ${U[j]}</div>`;
+            }
+            calcHtml += '</div>';
+
+            const resultDiv = document.getElementById('u-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <h3>Encoding Result</h3>
+                <p><b>Message (m):</b> [ ${m.join(' ')} ]</p>
+                ${calcHtml}
+                <p class="success" style="font-size: 1.3em; margin-top: 1em;"><b>Codeword (U):</b> [ ${U.join(' ')} ]</p>
+            `;
+        }
+
+        // Initialize on load
+        window.onload = setupMatrices;
+
+    </script>
+</body>
+</html>
