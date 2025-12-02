@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secured Document</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        h2 { margin-top: 0; margin-bottom: 1rem; }
+        p { margin-bottom: 1.5rem; color: #666; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        .error {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+            background-color: #ffe6e6;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .loading { display: none; margin-top: 10px; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container" id="login-box">
+        <h2>Access Restricted</h2>
+        <p>This document is encrypted. Enter password to access.</p>
+        <input type="password" id="password" placeholder="Your password" autofocus>
+        <button onclick="decryptContent()" id="btn-decrypt">Decrypt</button>
+        <div class="loading" id="loading-msg">Decrypting...</div>
+        <div class="error" id="error-msg">Invalid password or corrupted data.</div>
+    </div>
+
+    <script>
+        const encryptedData = {
+            salt: "t4WQ4uaMdgy41aiFeQVfpQ==",
+            iv: "ovUZfqtjvC/KIRMx",
+            ciphertext: "aiWfXJfCarnE4PxFdXDQ9ShZFy+2ZkhhzRm2kOJhGVBUXni0hvrDq1YHGH/PsxO54p8wwMX5BKqZk2buWWw3fT7Kjq0IfaBl/4mmzTlK12O4ZwGVU1+Df8qoiVzmXPty3b8+GK6lkJZiWpvEVRceXSzaDTIQIc0sHeCwPHPVrSiIC2LS4ku958Jj0kMnv3dJvZz8qWyDDL0OOMRaoWXOkx4C98ya0/cJiVAJAcXfpwI3hUvfURtJ83hLqjcMwFkK3S7iM6GDiPXr9jEoq2CHn7Fe//H6KhGSJQa1b8YaMeotHKkUuOXXHciYog7e0pBD2yJda/O4rregrtn4scOpyKDds0LUhd04f81tsOjDIqD1SOGswsRjlGR6VUnj2NH5Ln7G1ZvzcKb8DE2ZCte8BchA/X3PoPDvDVQ4yRE8YiCyNPJd9LP/GMWA22UBTHr19twwYL91VPbmoTRM9wK7An9Ariw8qbHnQkwXuk49epxhX0f1jNJasVlwNWHLntwh1pBps9a37DRCI6HOLuCeF9gAc84OTTreIAt+6D69hh/AWkV1C32/UbFeBSVuNKS5UJgrAwAYZ3/PGcPIv36Vwti+tLcorJE4/g4u4+Ba6WVPqHE3/OnbKuzSzUNLc6s3w4PNDktEs7HX9boRayPhjXvFiqWdg49efncmDPGPXe6VrNIM+z4pz0qhlBDHQ0wt+I8ZoMbC8gxNwgYefIPS2ulIwkB9OIhTLtvnGJBuJ9pogl6thsMUldDRQBpRc1IRALejt0eD+ORRpGZoswg3SaW0dtixmRPf8qjCsAiA17eoIkRs3pCnyA4klAZYV65cASOSi0tuS+2FTrwjqjK1KqEotCXW9KvkOxMTCrLq4j4sk3s6X5jpBPbs5VgRSF566vr8koNRLozH048rKKF/+ZBbBDlS/HzNDMYicWcFDsgAhscgAeYdW84jWoS0Y9/hCU4Gh/pUJQOyJkFtU93wBBYNweYRVOvceuB0wzCG91pRJyHLSt8uNbSrq7Jn+2k9iI/beBz/l+yQZDbap76XzPeGFSkhOolNOjY76g3N6lEKIoBZ0KDakKvJ59r7CXGQAvHa+YjbEldyzpcSHvFTvYQYwvvHufyuaPmoUCETmPa/T4nYcHmm+ctp7GRA3aTrlULz+a5oe5anteW+AQayBwwHZN86yr1vr6go6LA9FIGQeyFJ70uzZeOGCMc9BxFsUn4sjJCr4GvFao7k5dGmwr7nlCzV7r9Oot4+Yjoa5qVpaoWW3QkcRHt/UEQXnlxqJmRvWUTiOGdlnqhMN9Efc7EgRjmPpz/RkgKBKJvMX9/E1BfyuI1A41tG2gEMJd2S+8x5r5yJae79LDD6DTDjlywl6oEWFnNHPi4O/SCR0cCCZq1ApTlAZ9vaTEtfF2zgsckCc0pYy454MhpM5GmGRSbxS8uO0tet/zepbMDqM+dMULmSHQ3boP1OLsHonBcqH9YAg90aT1uXWSzrR/M4y5db2r+Et2HPWhSrUU2z6ATDSchQCTFXMbfbmcl63ldjCFcnEjacrSOCCA2IOg1euSr/Hf7eTzIi8jginRM/ZC4jFK5cugySK2UJpVsldg1nJvwUsuTNgjnt2AkovHK3Al4Qx2XlaZoU36Zidz7l4AfkfdmiyTTzcJBq8usgZP5PIncxfE5G2NTumj9pZqwWZotD+eLfM6HMSorQJo2+BsdpPizDS3TetQ+ppaXETpIL5Uo=",
+            iterations: 100000
+        };
+
+        // Auto-decrypt if password is in session storage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedPass = sessionStorage.getItem('decryption_pass');
+            if (savedPass) {
+                document.getElementById('login-box').style.opacity = '0.5';
+                decryptContent(savedPass);
+            }
+        });
+
+        async function decryptContent(providedPassword) {
+            const passwordField = document.getElementById('password');
+            const password = providedPassword || passwordField.value;
+            const errorMsg = document.getElementById('error-msg');
+            const loadingMsg = document.getElementById('loading-msg');
+            const btn = document.getElementById('btn-decrypt');
+            
+            if (!password) return;
+
+            if (!providedPassword) {
+                errorMsg.style.display = 'none';
+                loadingMsg.style.display = 'block';
+                btn.disabled = true;
+                passwordField.disabled = true;
+            }
+
+            try {
+                const toUint8 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+                
+                const salt = toUint8(encryptedData.salt);
+                const iv = toUint8(encryptedData.iv);
+                const ciphertext = toUint8(encryptedData.ciphertext);
+
+                const enc = new TextEncoder();
+                const keyMaterial = await window.crypto.subtle.importKey(
+                    "raw", 
+                    enc.encode(password), 
+                    { name: "PBKDF2" },
+                    false, 
+                    ["deriveKey"]
+                );
+
+                const key = await window.crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: encryptedData.iterations,
+                        hash: "SHA-512"
+                    },
+                    keyMaterial,
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["decrypt"]
+                );
+
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv
+                    },
+                    key,
+                    ciphertext
+                );
+
+                const dec = new TextDecoder();
+                const decryptedHTML = dec.decode(decryptedBuffer);
+                
+                // Save password for seamless transition
+                sessionStorage.setItem('decryption_pass', password);
+
+                document.open();
+                document.write(decryptedHTML);
+                document.close();
+
+            } catch (e) {
+                console.error("Decryption failed:", e);
+                
+                if (providedPassword) {
+                    sessionStorage.removeItem('decryption_pass');
+                    document.getElementById('login-box').style.opacity = '1';
+                    return;
+                }
+
+                errorMsg.style.display = 'block';
+                loadingMsg.style.display = 'none';
+                btn.disabled = false;
+                passwordField.disabled = false;
+                passwordField.focus();
+            }
+        }
+        
+        document.getElementById('password').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') decryptContent();
+        });
+    </script>
+</body>
+</html>
