@@ -1,0 +1,67 @@
+name: ☢️ NUKE Repository & Deployments
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Напишите "DELETE" чтобы подтвердить удаление истории и деплоев.'
+        required: true
+        default: ''
+
+jobs:
+  nuke-everything:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # Для перезаписи веток
+      deployments: write   # Для удаления истории деплоев (GitHub Pages и др.)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Safety Check
+        if: ${{ inputs.confirmation != 'DELETE' }}
+        run: |
+          echo "❌ ОШИБКА: Вы не ввели слово DELETE. Операция отменена."
+          exit 1
+
+      - name: 🔥 Nuke Deployments History
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Ищу активные и прошлые деплои..."
+          
+          # Получаем список всех ID деплоев через API
+          DEPLOYMENTS=$(gh api "repos/${{ github.repository }}/deployments" --paginate --jq '.[].id')
+          
+          if [ -z "$DEPLOYMENTS" ]; then
+            echo "✅ История деплоев уже пуста."
+          else
+            for id in $DEPLOYMENTS; do
+              echo "🗑️ Удаляю деплой ID: $id"
+              # Удаляем каждый деплой через API (игнорируем ошибки, если уже удален)
+              gh api "repos/${{ github.repository }}/deployments/$id" -X DELETE || true
+            done
+            echo "✅ Все записи о деплоях уничтожены."
+          fi
+
+      - name: 🔥 Rewrite Git History
+        run: |
+          git config --global user.name "Cleaner Bot"
+          git config --global user.email "actions@github.com"
+          
+          echo "Текущая ветка: ${{ github.ref_name }}"
+
+          # 1. Создаем сиротскую ветку (без родителей)
+          git checkout --orphan temp_nuke_branch
+          
+          # 2. Добавляем текущие файлы
+          git add -A
+          
+          # 3. Делаем первый коммит
+          git commit -m "Initial commit (Global Reset)"
+          
+          # 4. Жестко пушим
+          git push origin temp_nuke_branch:${{ github.ref_name }} --force
+
+          echo "✅ История коммитов уничтожена."

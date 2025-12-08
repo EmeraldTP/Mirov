@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secured Document</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        h2 { margin-top: 0; margin-bottom: 1rem; }
+        p { margin-bottom: 1.5rem; color: #666; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        .error {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+            background-color: #ffe6e6;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .loading { display: none; margin-top: 10px; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container" id="login-box">
+        <h2>Access Restricted</h2>
+        <p>This document is encrypted. Enter password to access.</p>
+        <input type="password" id="password" placeholder="Your password" autofocus>
+        <button onclick="decryptContent()" id="btn-decrypt">Decrypt</button>
+        <div class="loading" id="loading-msg">Decrypting...</div>
+        <div class="error" id="error-msg">Invalid password or corrupted data.</div>
+    </div>
+
+    <script>
+        const encryptedData = {
+            salt: "upkihXhcf/An/kfOmgvsfg==",
+            iv: "TjfZ3lGeLNbefzOS",
+            ciphertext: "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",
+            iterations: 100000
+        };
+
+        // Auto-decrypt if password is in session storage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedPass = sessionStorage.getItem('decryption_pass');
+            if (savedPass) {
+                document.getElementById('login-box').style.opacity = '0.5';
+                decryptContent(savedPass);
+            }
+        });
+
+        async function decryptContent(providedPassword) {
+            const passwordField = document.getElementById('password');
+            const password = providedPassword || passwordField.value;
+            const errorMsg = document.getElementById('error-msg');
+            const loadingMsg = document.getElementById('loading-msg');
+            const btn = document.getElementById('btn-decrypt');
+            
+            if (!password) return;
+
+            if (!providedPassword) {
+                errorMsg.style.display = 'none';
+                loadingMsg.style.display = 'block';
+                btn.disabled = true;
+                passwordField.disabled = true;
+            }
+
+            try {
+                const toUint8 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+                
+                const salt = toUint8(encryptedData.salt);
+                const iv = toUint8(encryptedData.iv);
+                const ciphertext = toUint8(encryptedData.ciphertext);
+
+                const enc = new TextEncoder();
+                const keyMaterial = await window.crypto.subtle.importKey(
+                    "raw", 
+                    enc.encode(password), 
+                    { name: "PBKDF2" },
+                    false, 
+                    ["deriveKey"]
+                );
+
+                const key = await window.crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: encryptedData.iterations,
+                        hash: "SHA-512"
+                    },
+                    keyMaterial,
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["decrypt"]
+                );
+
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv
+                    },
+                    key,
+                    ciphertext
+                );
+
+                const dec = new TextDecoder();
+                const decryptedHTML = dec.decode(decryptedBuffer);
+                
+                // Save password for seamless transition
+                sessionStorage.setItem('decryption_pass', password);
+
+                document.open();
+                document.write(decryptedHTML);
+                document.close();
+
+            } catch (e) {
+                console.error("Decryption failed:", e);
+                
+                if (providedPassword) {
+                    sessionStorage.removeItem('decryption_pass');
+                    document.getElementById('login-box').style.opacity = '1';
+                    return;
+                }
+
+                errorMsg.style.display = 'block';
+                loadingMsg.style.display = 'none';
+                btn.disabled = false;
+                passwordField.disabled = false;
+                passwordField.focus();
+            }
+        }
+        
+        document.getElementById('password').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') decryptContent();
+        });
+    </script>
+</body>
+</html>
