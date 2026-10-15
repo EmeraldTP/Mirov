@@ -1,0 +1,73 @@
+name: Generate Directory Menu
+
+on:
+  push:
+    paths:
+      - 'mp/**.html'  # Запускать только при изменениях HTML-файлов в папке /mp/
+  workflow_dispatch:  # Возможность запустить вручную через интерфейс GitHub
+
+jobs:
+  build-menu:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Разрешение на запись изменений в репозиторий
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate Index Menu
+        run: |
+          cd mp
+          
+          # Создаем заголовок HTML-файла
+          cat << 'EOF' > index.html
+          <!DOCTYPE html>
+          <html lang="ru">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Главное меню</title>
+            <style>
+              body { font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+              h1 { color: #23292e; border-bottom: 2px solid #eaecef; padding-bottom: 0.3em; }
+              ul { list-style-type: none; padding: 0; }
+              li { margin: 10px 0; }
+              a { color: #0366d6; text-decoration: none; font-size: 1.1rem; }
+              a:hover { text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <h1>Список страниц (/mp/)</h1>
+            <ul>
+          EOF
+
+          # Находим все .html файлы в папке mp, кроме самого index.html, и добавляем ссылки на них
+          for file in *.html; do
+            if [ "$file" != "index.html" ] && [ -f "$file" ]; then
+              # Преобразуем имя файла в читаемый заголовок (без .html и с заменой дефисов/подчеркиваний на пробелы)
+              title=$(echo "$file" | sed 's/\.html$//' | tr '_-' ' ')
+              echo "    <li><a href=\"$file\">$title</a></li>" >> index.html
+            fi
+          done
+
+          # Закрываем теги HTML
+          cat << 'EOF' >> index.html
+            </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Commit and Push generated index.html
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add mp/index.html
+          
+          # Коммитим только если файл изменился
+          if ! git diff --cached --quiet; then
+            git commit -m "auto: обновление главного меню /mp/index.html [skip ci]"
+            git push
+          else
+            echo "Изменений в меню нет."
+          fi
