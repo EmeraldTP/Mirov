@@ -38,7 +38,6 @@ jobs:
             </style>
           </head>
           <body>
-            <h1>Список страниц (/mp/)</h1>
             <ul>
           EOF
 
